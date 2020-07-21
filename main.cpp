@@ -10,7 +10,7 @@ void usage() {
 void show_pckt_info(pcap_t* handle){
     struct pcap_pkthdr* header;
     const u_char* packet;
-    u_int size_ip,size_tcp,size_payload;
+    u_int size_ip,size_tcp,size_payload; //size of the headers and payload
     int res = pcap_next_ex(handle, &header, &packet);
     if (res == 0) return;
     if (res == -1 || res == -2) {
@@ -18,6 +18,8 @@ void show_pckt_info(pcap_t* handle){
         exit(1);
     }
     printf("%u bytes captured\n", header->caplen);
+
+    //initiailize components of packet
     struct sniff_ethernet* eth_header=(struct sniff_ethernet*)packet;
     struct sniff_ip* ip_header=(struct sniff_ip*)(packet+ETH_SIZE);
     size_ip = IP_HL(ip_header)*4;
@@ -26,8 +28,9 @@ void show_pckt_info(pcap_t* handle){
     const u_char* payload=packet+ETH_SIZE+size_ip+size_tcp;
     size_payload=ntohs(ip_header->ip_len)-size_ip-size_tcp;
 
-    if(size_tcp==0)
+    if(ip_header->ip_p!=6) //if pckt is not tcp
         return;
+    //print mac address
     printf("1. src mac: ");
     for(int i=0; i<ETHER_ADDR_LEN; i++)
         printf("%02X ",eth_header->ether_shost[i]);
@@ -35,9 +38,12 @@ void show_pckt_info(pcap_t* handle){
     for(int i=0; i<ETHER_ADDR_LEN; i++)
         printf("%02X ",eth_header->ether_dhost[i]);
     printf("\n");
+    //print ip address
     printf("2. src ip: %s\t",inet_ntoa(ip_header->ip_src));
     printf("dst ip: %s\n",inet_ntoa(ip_header->ip_dst));
+    //print port
     printf("3. src port: %d\tdst port:%d\n",ntohs(tcp_header->th_sport),ntohs(tcp_header->th_dport));
+    //print payload len & 16 bytes of payload in hexadecimal(if exists)
     printf("4. Payload(len: %d): ",size_payload);
     for(int i=0; i<16&&i<size_payload; i++)
         printf("%02X ",payload[i]);
