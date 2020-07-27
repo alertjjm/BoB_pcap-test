@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <pcap.h>
 #include <stdint.h>
+#include <libnet.h>
 #include "header.h"
 #define ETH_SIZE 14
 void usage() {
@@ -22,14 +23,16 @@ void show_pckt_info(pcap_t* handle){
     //initiailize components of packet
     struct sniff_ethernet* eth_header=(struct sniff_ethernet*)packet;
     struct sniff_ip* ip_header=(struct sniff_ip*)(packet+ETH_SIZE);
+    //ethertype check add!!
+    if(ntohs(eth_header->ether_type)!=ETHERTYPE_IP)
+        return;
     size_ip = IP_HL(ip_header)*4;
     const struct sniff_tcp* tcp_header=(struct sniff_tcp*)(packet+ETH_SIZE+size_ip);
     size_tcp = TH_OFF(tcp_header)*4;
-    const u_char* payload=packet+ETH_SIZE+size_ip+size_tcp;
-    size_payload=ntohs(ip_header->ip_len)-size_ip-size_tcp;
-
-    if(ip_header->ip_p!=6) //if pckt is not tcp
+    
+    if(ip_header->ip_p!=IPPROTO_TCP) //if pckt is not tcp
         return;
+    
     //print mac address
     printf("1. src mac: ");
     for(int i=0; i<ETHER_ADDR_LEN; i++)
@@ -44,6 +47,8 @@ void show_pckt_info(pcap_t* handle){
     //print port
     printf("3. src port: %d\tdst port:%d\n",ntohs(tcp_header->th_sport),ntohs(tcp_header->th_dport));
     //print payload len & 16 bytes of payload in hexadecimal(if exists)
+    const u_char* payload=packet+ETH_SIZE+size_ip+size_tcp;
+    size_payload=ntohs(ip_header->ip_len)-size_ip-size_tcp;
     printf("4. Payload(len: %d): ",size_payload);
     for(int i=0; i<16&&i<size_payload; i++)
         printf("%02X ",payload[i]);
